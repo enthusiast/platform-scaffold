@@ -42,7 +42,7 @@ Every scaffolded project includes:
 | **EditorConfig** | Consistent indentation and line-ending rules across editors |
 | **gitignore** | Python, Terraform, IDE, OS, and secrets patterns |
 | **pyproject.toml** | Project metadata, dev dependencies, Black and pytest configuration |
-| **Engineering Standards** | Full playbook covering repo structure, branch protection, CODEOWNERS, and hook details |
+| **Engineering Standards** | Full playbook covering repo structure, branch protection, and hook details |
 
 ## Updating
 

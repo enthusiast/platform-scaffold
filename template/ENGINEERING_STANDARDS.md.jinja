@@ -10,7 +10,7 @@
 We enforce quality through **Systems**, not nagging.
 
 * **The Goal:** Prevent "breaking" changes from ever reaching `main`.
-* **The Tools:** Pre-commit (Local), GitHub Actions (Cloud), CODEOWNERS (Ownership), and AI (Documentation).
+* **The Tools:** Pre-commit (Local), GitHub Actions (Cloud), and AI (Documentation).
 * **The Experience:** Developers clone, install, and code. Everything else is invisible.
 
 ---
@@ -23,8 +23,7 @@ your-project/
 │   ├── workflows/
 │   │   ├── gatekeeper.yml              # CI: quality checks, pytest, terraform plan, security report
 │   │   └── autoupdate-precommit.yml    # Weekly hook version auto-updates
-│   ├── pull_request_template.md        # PR form: type, AI summary, breaking changes, checklist
-│   └── CODEOWNERS                      # Auto-assign reviewers by file type
+│   └── pull_request_template.md        # PR form: type, AI summary, breaking changes, checklist
 ├── .editorconfig                       # IDE formatting rules
 ├── .pre-commit-config.yaml             # Local pre-commit hook config
 ├── .gitignore                          # Python, Terraform, IDE, secrets ignores
@@ -125,41 +124,17 @@ Copier performs a 3-way merge between the old template, new template, and your l
 
 The report renders as a formatted table directly on the workflow run page. Developers see findings without being blocked.
 
-### Ownership
-
-| File | Purpose |
-|------|---------|
-| `CODEOWNERS` | Auto-assigns PR reviewers based on file paths |
-
----
-
 ## 5. Branch Protection Rules
 
 **Apply these to `main` in Settings > Branches:**
 
 1. **Require a pull request** before merging.
 2. **Require status checks** — select `quality-check` and `test`.
-3. **Require review from Code Owners**.
-4. **Include Administrators** in these restrictions.
+3. **Include Administrators** in these restrictions.
 
 ---
 
-## 6. CODEOWNERS Setup
-
-Edit `.github/CODEOWNERS` to assign PR reviewers based on file paths. Example:
-
-| Pattern | Assign To |
-|---------|-----------|
-| `*` (everything) | `@{{ github_org }}/engineering-leads` |
-| `*.py` | `@{{ github_org }}/backend-team` |
-| `*.tf` | `@{{ github_org }}/platform-team` |
-| `.github/` | `@{{ github_org }}/devops-team` |
-
-When combined with branch protection rule #3, changes to Terraform files require platform team approval, Python changes require backend team approval, etc.
-
----
-
-## 7. Hook Auto-Updates
+## 6. Hook Auto-Updates
 
 The `autoupdate-precommit.yml` workflow keeps hook versions current:
 
@@ -170,7 +145,7 @@ The `autoupdate-precommit.yml` workflow keeps hook versions current:
 
 ---
 
-## 8. Requirements
+## 7. Requirements
 
 | Requirement | Purpose |
 |-------------|---------|
@@ -180,11 +155,10 @@ The `autoupdate-precommit.yml` workflow keeps hook versions current:
 
 ---
 
-## 9. Customization Checklist
+## 8. Customization Checklist
 
 After applying the template, the cloud & DevOps team should:
 
-- [ ] Set up `.github/CODEOWNERS` with actual team names (Section 6).
 - [ ] Enable branch protection rules on `main` (Section 5).
 - [ ] Verify `pre-commit run --all-files` passes locally.
 - [ ] Verify the Gatekeeper workflow runs on a test PR.
