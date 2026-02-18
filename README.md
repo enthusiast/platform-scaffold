@@ -16,18 +16,16 @@ Run the one-liner from an **empty directory** (or the root of an existing repo):
 **Linux / WSL / macOS**
 
 ```bash
-curl -sL https://github.com/your-org/platform-scaffold/raw/main/bootstrap.sh | bash
+curl -sL https://github.com/enthusiast/platform-scaffold/raw/main/bootstrap.sh | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-irm https://github.com/your-org/platform-scaffold/raw/main/bootstrap.ps1 | iex
+irm https://github.com/enthusiast/platform-scaffold/raw/main/bootstrap.ps1 | iex
 ```
 
 The script will prompt you for your GitHub org, project name, and template repo name, then set everything up automatically.
-
-> **Note:** Replace `your-org` in the URLs above with your actual GitHub org before sharing these commands.
 
 ## What You Get
 
