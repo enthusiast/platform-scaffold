@@ -1,0 +1,190 @@
+# Engineering Standards & Automation Kit
+**Owner:** Head of AI & Platform Engineering
+**Audience:** Cloud & DevOps Teams
+**Stacks:** Python (3.12+), Terraform (Azure/AWS), Bash, GitHub Actions
+
+---
+
+## 1. The Strategy
+
+We enforce quality through **Systems**, not nagging.
+
+* **The Goal:** Prevent "breaking" changes from ever reaching `main`.
+* **The Tools:** Pre-commit (Local), GitHub Actions (Cloud), CODEOWNERS (Ownership), and AI (Documentation).
+* **The Experience:** Developers clone, install, and code. Everything else is invisible.
+
+---
+
+## 2. Repository Structure
+
+```text
+your-project/
+├── .github/
+│   ├── workflows/
+│   │   ├── gatekeeper.yml              # CI: quality checks, pytest, terraform plan, security report
+│   │   └── autoupdate-precommit.yml    # Weekly hook version auto-updates
+│   ├── pull_request_template.md        # PR form: type, AI summary, breaking changes, checklist
+│   └── CODEOWNERS                      # Auto-assign reviewers by file type
+├── .editorconfig                       # IDE formatting rules
+├── .pre-commit-config.yaml             # Local pre-commit hook config
+├── .gitignore                          # Python, Terraform, IDE, secrets ignores
+├── pyproject.toml                      # Python project config (3.12+, dev deps)
+├── ENGINEERING_STANDARDS.md            # This document (cloud & DevOps playbook)
+└── README.md                          # Developer-facing instructions
+```
+
+---
+
+## 3. Deployment Workflows
+
+### Applying the Template
+
+Use Copier to apply the engineering standards to any repo (new or existing):
+
+```bash
+copier copy gh:{{ github_org }}/{{ template_repo_name }} .
+```
+
+Or use the bootstrap one-liner:
+
+**Linux / WSL:**
+```bash
+curl -sL https://github.com/{{ github_org }}/{{ template_repo_name }}/raw/main/bootstrap.sh | bash
+```
+
+**Windows PowerShell:**
+```powershell
+irm https://github.com/{{ github_org }}/{{ template_repo_name }}/raw/main/bootstrap.ps1 | iex
+```
+
+> **Note:** PowerShell aliases `curl` to `Invoke-WebRequest`, which is not the real curl. Always use `irm` (`Invoke-RestMethod`) in PowerShell.
+
+Copier creates a virtual environment, generates all config files, installs dependencies from `pyproject.toml`, and initializes pre-commit hooks.
+
+### Updating to Latest Template
+
+When the template is updated, pull changes into downstream repos:
+
+```bash
+copier update
+```
+
+Copier performs a 3-way merge between the old template, new template, and your local changes. Local customizations are preserved.
+
+---
+
+## 4. What Each File Does
+
+### Local Quality (runs on every commit)
+
+| File | Purpose |
+|------|---------|
+| `.pre-commit-config.yaml` | Configures 10 hooks that run locally before each commit |
+| `.editorconfig` | Tells IDEs the correct formatting rules so code is clean before hooks run |
+| `pyproject.toml` | Enforces Python 3.12+, centralizes tool config (Black, pytest), manages dev dependencies |
+
+**Pre-commit hooks included:**
+
+| Hook | What It Does |
+|------|-------------|
+| `trailing-whitespace` | Removes trailing whitespace |
+| `end-of-file-fixer` | Ensures files end with a newline |
+| `check-yaml` | Validates YAML syntax |
+| `check-added-large-files` | Prevents large files from being committed |
+| `black` | Auto-formats Python code (line length 88) |
+| `terraform_fmt` | Formats Terraform files |
+| `terraform_validate` | Validates Terraform configuration |
+| `terraform_tflint` | Lints Terraform for Azure/AWS best practices |
+| `shellcheck` | Validates Bash scripts |
+| `gitleaks` | Detects secrets and credentials |
+
+### CI Quality (runs on every pull request)
+
+| File | Purpose |
+|------|---------|
+| `gatekeeper.yml` | Runs four jobs on every PR (see below) |
+| `autoupdate-precommit.yml` | Opens a PR every Monday if hook versions are outdated |
+| `pull_request_template.md` | Prompts authors for type of change, AI summary, breaking changes, and a quality checklist |
+
+**Gatekeeper CI jobs:**
+
+| Job | What It Does | Blocks merge? |
+|-----|-------------|---------------|
+| `quality-check` | Re-runs all pre-commit hooks in CI | Yes |
+| `test` | Installs dependencies and runs `pytest` | Yes |
+| `terraform-plan` | Runs `terraform init`, `validate`, and `plan` on Terraform changes | No |
+| `security-report` | Runs Bandit, Safety, and Checkov — writes a Markdown report to the job summary | No |
+
+**Security report details (non-blocking):**
+
+| Tool | What It Scans |
+|------|--------------|
+| Bandit | Python code for security vulnerabilities |
+| Safety | Python dependencies against known CVE database |
+| Checkov | Terraform files for misconfigurations and compliance |
+
+The report renders as a formatted table directly on the workflow run page. Developers see findings without being blocked.
+
+### Ownership
+
+| File | Purpose |
+|------|---------|
+| `CODEOWNERS` | Auto-assigns PR reviewers based on file paths |
+
+---
+
+## 5. Branch Protection Rules
+
+**Apply these to `main` in Settings > Branches:**
+
+1. **Require a pull request** before merging.
+2. **Require status checks** — select `quality-check` and `test`.
+3. **Require review from Code Owners**.
+4. **Include Administrators** in these restrictions.
+
+---
+
+## 6. CODEOWNERS Setup
+
+Edit `.github/CODEOWNERS` to assign PR reviewers based on file paths. Example:
+
+| Pattern | Assign To |
+|---------|-----------|
+| `*` (everything) | `@{{ github_org }}/engineering-leads` |
+| `*.py` | `@{{ github_org }}/backend-team` |
+| `*.tf` | `@{{ github_org }}/platform-team` |
+| `.github/` | `@{{ github_org }}/devops-team` |
+
+When combined with branch protection rule #3, changes to Terraform files require platform team approval, Python changes require backend team approval, etc.
+
+---
+
+## 7. Hook Auto-Updates
+
+The `autoupdate-precommit.yml` workflow keeps hook versions current:
+
+1. Runs every Monday at 9am UTC (or on-demand via manual trigger).
+2. Executes `pre-commit autoupdate` to check for newer versions.
+3. If versions changed, opens a PR on branch `auto/pre-commit-update`.
+4. Team reviews and merges the version bump.
+
+---
+
+## 8. Requirements
+
+| Requirement | Purpose |
+|-------------|---------|
+| Python >= 3.12 | Runtime for all Python tooling |
+| Terraform + tflint | Required for IaC projects |
+| ShellCheck | Bash linting (auto-installed by pre-commit on most systems) |
+
+---
+
+## 9. Customization Checklist
+
+After applying the template, the cloud & DevOps team should:
+
+- [ ] Set up `.github/CODEOWNERS` with actual team names (Section 6).
+- [ ] Enable branch protection rules on `main` (Section 5).
+- [ ] Verify `pre-commit run --all-files` passes locally.
+- [ ] Verify the Gatekeeper workflow runs on a test PR.

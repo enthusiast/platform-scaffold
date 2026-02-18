@@ -1,0 +1,162 @@
+name: Gatekeeper CI
+on: [pull_request]
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: pre-commit/action@v3.0.1
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run tests
+        run: pytest --tb=short -q
+
+  terraform-plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for Terraform files
+        id: tf-check
+        run: |
+          if find . -name "*.tf" -not -path "./.venv/*" | grep -q .; then
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.tf-check.outputs.has_tf == 'true'
+      - name: Terraform Init
+        if: steps.tf-check.outputs.has_tf == 'true'
+        run: terraform init -backend=false
+      - name: Terraform Validate
+        if: steps.tf-check.outputs.has_tf == 'true'
+        run: terraform validate
+      - name: Terraform Plan
+        if: steps.tf-check.outputs.has_tf == 'true'
+        run: terraform plan -no-color
+        continue-on-error: true
+
+  security-report:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install security tools
+        run: pip install bandit safety checkov
+
+      - name: Start report
+        run: echo "## Security Scan Report" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run Bandit (Python security linter)
+        if: always()
+        run: |
+          echo "### Bandit (Python)" >> "$GITHUB_STEP_SUMMARY"
+          if find . -name "*.py" -not -path "./.venv/*" | head -1 | grep -q .; then
+            bandit -r . --exclude ./.venv -f json -o bandit-results.json || true
+            if [ -s bandit-results.json ]; then
+              ISSUES=$(python3 -c "
+          import json, sys
+          data = json.load(open('bandit-results.json'))
+          results = data.get('results', [])
+          if not results:
+              print('No issues found.')
+              sys.exit(0)
+          print('| Severity | Confidence | File | Issue |')
+          print('|----------|------------|------|-------|')
+          for r in results:
+              fname = r['filename'].replace('./', '')
+              line = r['line_number']
+              print(f\"| {r['issue_severity']} | {r['issue_confidence']} | {fname}:{line} | {r['issue_text']} |\")
+          ")
+              echo "$ISSUES" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "No issues found." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No Python files found. Skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Run Safety (dependency vulnerability check)
+        if: always()
+        run: |
+          echo "### Safety (Dependencies)" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f pyproject.toml ]; then
+            pip install -e ".[dev]" --quiet
+            safety check --output json 2>/dev/null > safety-results.json || true
+            if [ -s safety-results.json ]; then
+              ISSUES=$(python3 -c "
+          import json, sys
+          try:
+              data = json.load(open('safety-results.json'))
+              vulns = data if isinstance(data, list) else data.get('vulnerabilities', [])
+              if not vulns:
+                  print('No vulnerable packages found.')
+                  sys.exit(0)
+              print('| Package | Installed | Vulnerability |')
+              print('|---------|-----------|---------------|')
+              for v in vulns[:20]:
+                  if isinstance(v, list):
+                      print(f'| {v[0]} | {v[2]} | {v[3]} |')
+                  else:
+                      print(f\"| {v.get('package_name','?')} | {v.get('analyzed_version','?')} | {v.get('vulnerability_id','?')} |\")
+          except Exception as e:
+              print(f'Could not parse results: {e}')
+          ")
+              echo "$ISSUES" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "No vulnerable packages found." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No pyproject.toml found. Skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Run Checkov (Terraform/IaC scanner)
+        if: always()
+        run: |
+          echo "### Checkov (Terraform / IaC)" >> "$GITHUB_STEP_SUMMARY"
+          if find . -name "*.tf" -not -path "./.venv/*" | head -1 | grep -q .; then
+            checkov -d . --quiet --compact --output json > checkov-results.json 2>/dev/null || true
+            if [ -s checkov-results.json ]; then
+              ISSUES=$(python3 -c "
+          import json, sys
+          try:
+              data = json.load(open('checkov-results.json'))
+              checks = data if isinstance(data, list) else [data]
+              failed = []
+              for check_type in checks:
+                  for result in check_type.get('results', {}).get('failed_checks', []):
+                      failed.append(result)
+              if not failed:
+                  print('All checks passed.')
+                  sys.exit(0)
+              print('| Check ID | File | Resource | Check |')
+              print('|----------|------|----------|-------|')
+              for f in failed[:30]:
+                  fname = f.get('file_path', '?').replace('./', '')
+                  print(f\"| {f.get('check_id','?')} | {fname}:{f.get('file_line_range',[0])[0]} | {f.get('resource','?')} | {f.get('check_name','?')} |\")
+          except Exception as e:
+              print(f'Could not parse results: {e}')
+          ")
+              echo "$ISSUES" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "All checks passed." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "No Terraform files found. Skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,25 @@
+_min_copier_version: "9.1.0"
+_subdirectory: template
+_answers_file: .copier-answers.yml
+
+github_org:
+  type: str
+  help: "GitHub owner — organization or personal username (e.g., 'acme-corp')"
+  validator: >-
+    {% if not github_org | regex_search('^[a-zA-Z0-9-]+$') %}
+    Must be a valid GitHub username or org slug{% endif %}
+
+project_name:
+  type: str
+  help: "Project name for pyproject.toml"
+  default: "my-project"
+
+template_repo_name:
+  type: str
+  help: "Name of this template repo on GitHub"
+  default: "platform-scaffold"
+
+_tasks:
+  - "python3 -m venv .venv"
+  - ".venv/bin/pip install -e '.[dev]'"
+  - ".venv/bin/pre-commit install"

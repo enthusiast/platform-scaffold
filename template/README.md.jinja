@@ -1,0 +1,76 @@
+# Engineering Standards Template
+
+Standardized repository template that enforces code quality through automated tooling.
+
+## Quick Start
+
+### New Projects
+
+Apply the engineering standards to a new or existing repo:
+
+```bash
+copier copy gh:{{ github_org }}/{{ template_repo_name }} .
+```
+
+Or use the bootstrap one-liner:
+
+**Linux / WSL:**
+```bash
+curl -sL https://github.com/{{ github_org }}/{{ template_repo_name }}/raw/main/bootstrap.sh | bash
+```
+
+**Windows PowerShell:**
+```powershell
+irm https://github.com/{{ github_org }}/{{ template_repo_name }}/raw/main/bootstrap.ps1 | iex
+```
+
+> **Note:** Do not use `curl` in PowerShell -- it is an alias for `Invoke-WebRequest`, not the real curl. Use `irm` (`Invoke-RestMethod`) instead.
+
+### Updating to Latest Template
+
+When the template is updated, pull changes into your project:
+
+```bash
+copier update
+```
+
+Copier performs a 3-way merge — your local customizations are preserved while new template changes are applied.
+
+## What Happens Automatically
+
+### On Every Commit (Local)
+
+Pre-commit hooks run and either auto-fix or flag issues before your code leaves your machine:
+
+| Hook | What It Does |
+|------|-------------|
+| `black` | Auto-formats Python code |
+| `terraform_fmt` | Auto-formats Terraform files |
+| `trailing-whitespace` | Removes trailing whitespace |
+| `end-of-file-fixer` | Ensures files end with a newline |
+| `check-yaml` | Validates YAML syntax |
+| `check-added-large-files` | Prevents large files from being committed |
+| `terraform_validate` | Validates Terraform configuration |
+| `terraform_tflint` | Lints Terraform for Azure/AWS best practices |
+| `shellcheck` | Validates Bash scripts |
+| `gitleaks` | Blocks commits containing secrets or credentials |
+
+### On Every Pull Request (CI)
+
+| Job | What It Does | Blocks merge? |
+|-----|-------------|---------------|
+| `quality-check` | Re-runs all pre-commit hooks | Yes |
+| `test` | Runs `pytest` | Yes |
+| `terraform-plan` | Runs `terraform plan` on Terraform changes | No |
+| `security-report` | Scans for vulnerabilities and writes a report to the PR | No |
+
+The security report is informational -- it never blocks your PR. Check the workflow run page for findings.
+
+## Requirements
+
+- Python >= 3.12
+- Terraform + tflint (for IaC projects)
+
+## For Admins
+
+See `ENGINEERING_STANDARDS.md` for the full cloud & DevOps playbook, including template setup, branch protection rules, CODEOWNERS configuration, and customization checklist.
